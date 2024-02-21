@@ -1,0 +1,287 @@
+<template>
+<div >
+    
+ <!-- Busquedas -->
+    <div class="d-flex drag" style="justify-content: space-between">
+      <b-form inline @submit.prevent="buscarPor">
+        <label class="mr-sm-2">Filtrar por:</label>
+        <b-form-select class="mb-2 mr-sm-2 mb-sm-0" v-model="tipoFiltro"
+          :options="[{ text: 'Todos', value: null }, 'Autor', 'Genero', 'Título', 'Año', 'Descendente']" :value="null"></b-form-select>
+
+        
+        <b-select v-if="tipoFiltro == 'Genero' && tipoFiltro !== 'Año' && tipoFiltro !== null " :options="options" v-model="valorFiltro"></b-select>
+
+        <b-input-group class="mb-2 mr-sm-2 mb-sm-0">
+          <b-form-input v-if="tipoFiltro !== 'Genero' && tipoFiltro !== 'Año' && tipoFiltro !== null && tipoFiltro !== 'Descendente'  " v-model="valorFiltro"></b-form-input>
+        </b-input-group>
+
+        <b-input-group class="mb-2 mr-sm-2 mb-sm-0">
+          <b-form-datepicker v-if="tipoFiltro == 'Año' && tipoFiltro !== null " v-model="añoInicio" class="mb-2"></b-form-datepicker>
+          <b-form-datepicker v-if="tipoFiltro == 'Año' && tipoFiltro !== null " v-model="añoFin" class="mb-2"></b-form-datepicker>
+        </b-input-group>
+
+        <b-button type="submit" variant="primary" style="margin-left: 20px;">Buscar</b-button>
+      </b-form>
+    </div>
+
+  <!-- zona de drga -->
+    <div class="drag ">
+
+      <!-- Formulario -->
+      <div  class="form">
+
+      <b-card  v-show="showElement" draggable @dragstart="startDrag($event, form)">
+      <template #header>Formulario película</template>
+      <b-form inline>
+        <b-form-group label="Nombre:" label-for="input-1">
+          <b-form-input id="input-1" v-model="form.nombre" placeholder="El principito" required>
+          </b-form-input>
+        </b-form-group>
+
+        <b-form-group label="Autor:" label-for="input-2">
+          <b-form-input id="input-2" v-model="form.autor" placeholder="Zuriel Rios Aguilar" required>
+          </b-form-input>
+        </b-form-group>
+        <br>
+        <b-form-group label="Genero:" label-for="input-3">
+          <b-form-select v-model="form.genero" :options="options"></b-form-select>
+        </b-form-group>
+        <b-form-group label="Año:" label-for="input-4">
+          <b-form-datepicker id="example-datepicker" v-model="form.añoPub" class="mb-2"></b-form-datepicker>
+
+
+        </b-form-group>
+      </b-form>
+      </b-card>
+      </div>
+      <!-- Grupo de cards -->
+
+      <div
+      @drop="onDrop($event)"
+      @dragover.prevent
+      @dragenter.prevent > 
+      <transition-group name="bounce" tag="div" class="cards">
+        <b-card v-for="(libro, index) in libros " :key="index">
+
+          <template #header>{{ libro.nombre }}</template>
+          <b-card-text>
+            <p><strong>Autor:</strong> {{ libro.autor }}</p>
+            <p><strong>Género:</strong> {{ libro.genero }}</p>
+            <p><strong>Año de Publicación:</strong> {{ libro.añoPub }}</p>
+          </b-card-text>
+        </b-card>
+    </transition-group>
+    </div>
+
+
+<div class="d-flex justify-content-center align-items-center" >
+    <b-spinner v-if="showSpinner" variant="info" style="width: 8rem; height: 8rem; margin-top:15%;"></b-spinner> 
+  </div>
+
+
+
+    </div>
+
+  </div>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      options: [
+        { value: null, text: "Selecciona un genero" },
+        { value: "accion", text: "Acción" },
+        { value: "aventura", text: "Aventura" },
+        { value: "suspenso", text: "Suspenso"},
+      ],
+     form:{},
+     libros: [],
+     showSpinner: false,
+     showElement: true,
+    lastScrollPosition: 0
+    };
+  },
+  mounted() {
+  this.spinner();
+  window.addEventListener("scroll", this.onScroll); 
+},
+beforeDestroy() {
+    window.removeEventListener("scroll", this.onScroll);
+  },
+  methods: {
+    buscarPor() {
+
+const tipo = this.tipoFiltro;
+const valor = this.valorFiltro;
+
+let url;
+
+switch (tipo) {
+  case null:
+    url = `http://localhost:8080/api/libros/`;
+    break;
+  case 'Autor':
+    url = `http://localhost:8080/api/libros/autor/${encodeURIComponent(valor)}`;
+    break;
+  case 'Genero':
+    url = `http://localhost:8080/api/libros/genero/${encodeURIComponent(valor)}`;
+    break;
+  case 'Título':
+    url = `http://localhost:8080/api/libros/nombre/${encodeURIComponent(valor)}`;
+    break;
+  case 'Año':
+    url = `http://localhost:8080/api/libros/añoPub/${encodeURIComponent(this.añoInicio)}/${encodeURIComponent(this.añoFin)}`;
+    break;
+  case 'Descendente':
+    url = `http://localhost:8080/api/libros/ordenados`;
+    break;
+  default:
+    console.error('Tipo de filtro no válido');
+    return;
+}
+
+// Realizar la solicitud GET a la URL construida
+fetch(url)
+  .then((response) => {
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
+    }
+    return response.json();
+  })
+  .then((data) => {
+    console.log("Success:", data);
+    this.libros = data;
+  })
+  .catch((error) => {
+    console.error("Error:", error);
+  });
+},
+    onSubmit() {
+      console.log("Formulario enviado!");
+      this.$bvModal.hide("modal-1");
+
+      var url = "http://localhost:8080/api/libros/add";
+      var data = this.form ;
+      
+      console.log(data)
+
+      fetch(url, {
+        method: "POST", 
+        body: JSON.stringify(data), 
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      .then((res) => res.json())
+      .then((response) => {
+      console.log("Success:", response);
+      // Recargar la página después de enviar el formulario
+      location.reload();
+  })
+  .catch((error) => console.error("Error:", error));
+    },
+
+    spinner() {
+this.showSpinner = true;
+setTimeout(() => {
+  this.showSpinner = false;
+  this.getLibros();
+}, 1500);
+},
+
+getLibros() {
+  fetch("http://localhost:8080/api/libros/")
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error("Network response was not ok");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      console.log("Success:", data);
+      this.libros = data;
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
+},
+
+
+startDrag(evt, item) {
+      evt.dataTransfer.dropEffect = "move";
+      evt.dataTransfer.effectAllowed = "move";
+      evt.dataTransfer.setData("formData", JSON.stringify(item));
+    },
+  
+onDrop(evt) {
+      const itemData = evt.dataTransfer.getData("formData");
+      const item = JSON.parse(itemData);
+      console.log("Datos drop" + itemData);
+      this.libros.push(item);
+
+      var url = "http://localhost:8080/api/libros/add";
+        fetch(url, {
+          method: "POST", 
+          body: JSON.stringify(item), 
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+        .then((res) => res.json())
+        .then((response) => {
+        console.log("Success:", response);
+    })
+    .catch((error) => console.error("Error:", error));
+    },
+  onScroll() {
+
+      
+      const currentScrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+      console.log(currentScrollPosition);
+      const valorabsoluto = Math.abs(currentScrollPosition- this.lastScrollPosition)
+      console.log("Valor absoluto:  "+valorabsoluto);
+      console.log("Ulitmo valor:  "+this.lastScrollPosition);
+
+      if (Math.abs(currentScrollPosition - this.lastScrollPosition) < 50) {
+        return;
+      }
+
+     this.showElement = currentScrollPosition < this.lastScrollPosition;
+      //  
+      this.lastScrollPosition = currentScrollPosition;
+  },
+  formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('default', { month: 'numeric', year: 'numeric' });
+    }
+},
+};
+</script>
+
+<style>
+
+.cards{
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+grid-gap: 20px; /* Espacio entre las cards */
+margin-top: 20px;
+background-color: rgb(233, 233, 233);
+padding: 20px 20px 20px 20px;
+}
+
+.form{
+height: 120px;
+
+}
+.drag{
+margin-top: 40px;
+margin-right: 40px;
+margin-left: 40px;
+
+}
+.transition{
+  background-color: red;
+  height: 200px;
+}
+</style>
